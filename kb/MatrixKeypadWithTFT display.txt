@@ -1,0 +1,52 @@
+/*
+Upload code and open serial monitor.
+Press any key on the keypad. If the corresponding value is printed on Serial monitor, the devices are working as intended.
+*/
+#include <SPI.h>
+#include <TFT_eSPI.h>
+#include "Wire.h"
+#include "I2CKeyPad.h"
+
+const uint8_t KEYPAD_ADDRESS = 0x3D;
+
+TFT_eSPI tft = TFT_eSPI();
+I2CKeyPad keyPad(KEYPAD_ADDRESS);
+
+void setup()
+{
+  Serial.begin(115200);
+  Wire.begin();
+  tft.init(); tft.setRotation(3);
+  tft.fillScreen(TFT_WHITE); // Fill the screen with black color
+  tft.setTextColor(TFT_BLACK); // Set text color to white
+  tft.setTextSize(2); // Set text size to 2
+  tft.setCursor(2, 2); // Set the cursor position
+  tft.println("setup success");
+  tft.setCursor(2, 20); // Set the cursor position
+  tft.println("PressKey - Matrix Keypad");
+  if (keyPad.begin() == false) {Serial.println("\nERROR: cannot communicate to keypad.\n"); while(1); }
+  tft.setTextColor(TFT_RED); // Set text color to white
+  tft.setTextSize(2); // Set text size to 2
+  tft.setCursor(50, 100);
+}
+char readKB(void)
+{
+
+char keys[] = "147*2580369#ABCDNF";  // N = Nokey, F = Fail, table keys indicated column wise
+  
+  uint8_t idx;
+  do{
+  idx = keyPad.getKey();
+  if (  keys[idx] != 'N') 
+     {
+      delay(300);
+      return(keys[idx]);
+     }
+  }while(1);
+ 
+}
+
+void loop()
+{
+  tft.print(readKB());
+}

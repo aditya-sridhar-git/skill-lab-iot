@@ -1,0 +1,43 @@
+/*
+Upload code and open serial monitor.
+Press any key on the keypad. If the corresponding value is printed on Serial monitor, the devices are working as intended.
+*/
+
+#include "Wire.h"
+#include "I2CKeyPad.h"
+
+const uint8_t KEYPAD_ADDRESS = 0x3D;
+
+
+I2CKeyPad keyPad(KEYPAD_ADDRESS);
+
+void setup()
+{
+  Serial.begin(115200);
+  Wire.begin();
+  //Wire.setClock(400000);
+  if (keyPad.begin() == false) {Serial.println("\nERROR: cannot communicate to keypad.\n"); while(1); }
+}
+char readKB(void)
+{
+
+char keys[] = "147*2580369#ABCDNF";  // N = Nokey, F = Fail, table keys indicated column wise
+  
+  uint8_t idx;
+  do{
+  idx = keyPad.getKey();
+  if (  keys[idx] != 'N') 
+     {
+      delay(300);
+      return(keys[idx]);
+     }
+  }while(1);
+ 
+}
+
+void loop()
+{
+  
+  Serial.println(readKB());
+
+}

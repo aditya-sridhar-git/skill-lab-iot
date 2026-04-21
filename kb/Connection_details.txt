@@ -1,0 +1,22 @@
+SOCKET  I2C_ADDS   PERIPHERAL Details.....
+                                        A2 A1 A0
+U3                0X38   000    PCF8574-ULN2804 STEPPER-UNIPOLOAR
+U4                0X39   001    PCF8574-A4988 STEPPER-BIPOLAR
+U11               0X3A   010    PCF8574-OPTO ISOLATED INPUTS, PROXIMITY SENSORS
+U9                0X3B   011    PCF8574-OPTO IOSLATED OUTPUS, RELAYS
+U12               0X3D   101    PCF8574-KEY MATRIX
+U13               0X3E   110    PCF8574-LOGIC CONTROLLER - 8 LED ARRAY
+U14               0X3F   111    PCF8574-LOGIC CONTROLLER - 8 DIP SWITCH
+U2                0X48              ADS1115 (16 BIT I2C ADC)
+U18               0X68              RTC MODULE DS1307
+MPU9250           0X69              ACCELEROMETER-GYROSCOPE- MPU9250
+PCA9685           0X40              SERVO MOTOR MODULE - PCA9685
+
+SPI Connections...
+VSPI - SDCARD/FLASH MEM(W25Q64BV)
+             GPIO5 (SS),GPIO18(SCK),GPIO23(MOSI),GPIO19(MISO)
+             (NOTE: 4 jumpers are provided, to select SD(left)/Flash(right)
+HSPI - TFT LCD / EXTERNAL CONNECTOR-HSPI
+             GPIO12 (MISO/SDO),GPIO14(SCK),GPIO13(MOSI/SDI),GPIO15(CS)
+             (for display, GPIO2-DC, GPIO4-RESET are used)
+             (NOTE: SW3  to used to switch on the TFT display) 

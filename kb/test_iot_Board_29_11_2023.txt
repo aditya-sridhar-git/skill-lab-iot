@@ -1,0 +1,642 @@
+#include <WiFi.h>
+#include "DHT.h"
+//#include "ThingSpeak.h"
+#include <SPI.h>
+#include <TFT_eSPI.h>
+#include <Wire.h>
+#include "RTClib.h"
+#include <SD.h>
+#include <FS.h>
+#include "MPU9250.h"
+#include<Adafruit_NeoPixel.h>
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+#include <Adafruit_ADS1015.h>
+#include "I2CKeyPad.h"
+#include "Arduino.h"
+#include "Audio.h"
+#include <Adafruit_PWMServoDriver.h>
+#include "ACROBOTIC_SSD1306.h"
+
+Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40);
+
+#define SERVOMIN  80  // Minimum value
+#define SERVOMAX  600  // Maximum value
+#define PCF8574_U9 0x3b // PCF8574 I2C address
+#define PCF8574_U11 0x3A // PCF8574 I2C address
+byte data1;
+byte data2;
+byte RELAY_1 = 0X01;
+byte RELAY_2 = 0x02;
+byte result = 0x00;
+#define SER0  0   //Servo Motor 0 on connector 0
+#define PCF8574_U8 0x38// PCF8574 I2C address
+#define PCF8574_U7 0x3e 
+#define TFT_CLK 14
+#define TFT_MISO 12
+#define TFT_MOSI 13
+#define TFT_CS 15
+#define TFT_DC 2
+#define TFT_RST  4 // Set to -1 if not used (optional)
+//#define TFT_BL -1  // Set to -1 if not used (optional)
+// Digital I/O used
+#define CS          5
+#define MOSI      23    // SD Card
+#define MISO      19
+#define SCK       18
+ 
+#define I2S_DOUT      27
+#define I2S_BCLK      26    // I2S
+#define I2S_LRC       32
+const uint8_t KEYPAD_ADDRESS = 0x3D;
+I2CKeyPad keyPad(KEYPAD_ADDRESS);
+#define PIN_WS2812B 17  // The ESP32 pin GPIO17 connected to WS2812B
+#define NUM_PIXELS 1 
+
+RTC_DS1307 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+File myFile;
+
+TFT_eSPI tft = TFT_eSPI();
+Audio audio;
+DHT dht(16, DHT22);  // (dht pin no, dht sensor type)
+float Hum, Temp;
+MPU9250 IMU(Wire, 0x69);
+int status;
+int pin1=36;
+int pin2=39;  // The number of LEDs (pixels) on WS2812B LED strip
+int pin3=34;
+int pin4=35;
+Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
+const uint16_t kRecvPin = 36; // GPIO 4 on ESP32
+const int B1A = 26;
+const int B2B = 27;
+
+const int DIR = 33;
+const int STEP = 32;
+const int  steps_per_rev = 200;
+
+IRrecv irrecv(kRecvPin);
+decode_results results;
+Adafruit_ADS1115 ads(0x48);
+void setup() 
+{
+  pinMode(2, OUTPUT);
+  pinMode(25,OUTPUT);
+  pinMode(STEP, OUTPUT);
+  pinMode(DIR, OUTPUT);
+  digitalWrite(25,HIGH);
+  Serial.begin(115200);
+  Serial.println("Serial Begin");
+  dht.begin();
+
+  tft.init();
+  tft.setRotation(3);// Adjust the rotation if necessary (0 to 3)
+  
+  oled.init();
+  Serial.println("oled done!");
+
+    Wire.begin();  
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    //while (1);
+ }
+ if (!rtc.isrunning()) {
+    Serial.println("RTC is NOT running, let's set the time!");
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+   
+  rtc.writeSqwPinMode(DS1307_SquareWave1HZ);
+ 
+
+ status = IMU.begin();
+ if (status < 0) {
+    Serial.println("IMU initialization unsuccessful");
+    Serial.println("Check IMU wiring or try cycling power");
+    Serial.print("Status: ");
+    Serial.println(status);
+   // while (1) {} //do not enter void loop() if error
+  }
+  ws2812b.begin();  // initialize WS2812B strip object (REQUIRED)
+  ws2812b.setBrightness(100);
+
+
+  if (keyPad.begin() == false) {Serial.println("\nERROR: cannot communicate to keypad.\n"); while(1); }
+ 
+ 
+ // Serial.println("RTC is NOT running, let's set the time!");
+  irrecv.enableIRIn();
+ ads.begin();  
+}
+char readKB(void)
+{
+  char keys[] = "147*2580369#ABCDNF";  // N = Nokey, F = Fail, table keys indicated column wise
+  
+  uint8_t idx;
+  do{
+  idx = keyPad.getKey();
+  if (  keys[idx] != 'N') 
+     {
+      delay(300);
+      return(keys[idx]);
+     }
+  }while(1);
+ 
+}
+
+char readKB1(void)
+{
+  char keys[] = "147*2580369#ABCDNF";  // N = Nokey, F = Fail, table keys indicated column wise
+  
+  uint8_t idx;
+  do{
+  idx = keyPad.getKey();
+      delay(300);
+      return(keys[idx]);
+  }while(1);
+}
+
+
+void TFT1(){
+  DateTime now = rtc.now();
+  Hum = dht.readHumidity();
+  Temp = dht.readTemperature();
+   int16_t adc0;
+    adc0 = ads.readADC_SingleEnded(0);
+    int16_t adc1;
+    adc1 = ads.readADC_SingleEnded(1);
+    int16_t adc2;
+    adc2 = ads.readADC_SingleEnded(2);
+    int16_t adc3;
+    adc3 = ads.readADC_SingleEnded(3);
+    IMU.readSensor();
+  tft.fillScreen(TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(2); // Set text size to 2
+  // tft.setCursor(0, 0);
+  // tft.setTextColor(TFT_ORANGE); // Set the cursor position
+  //tft.print("Weather Monitoring"); // Set text color to white
+  tft.setTextSize(2); // Set text size to 2
+  tft.setCursor(0, 0);
+  //tft.setCursor(10,30);
+  tft.setTextColor(TFT_RED);
+  tft.println();
+  tft.println("DATE/TIME");
+  tft.setTextColor(TFT_BLACK);
+  tft.print(now.year(), DEC);
+  tft.print('/');
+  tft.print(now.month(), DEC);
+  tft.print('/');
+  tft.print(now.day(), DEC);
+  //tft.print(" (");
+  //tft.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  //tft.print(") ");
+  tft.print("  ");
+  tft.print(now.hour(), DEC);
+  tft.print(':');
+  tft.print(now.minute(), DEC);
+  tft.print(':');
+  tft.print(now.second(), DEC);
+  tft.println();
+  tft.setTextColor(TFT_RED); // Set the cursor position
+  tft.println("DHT22");
+  tft.setTextColor(TFT_BLACK);
+  tft.print(Hum);
+  tft.print("  ");
+  tft.println(Temp);
+  
+  
+  Serial.print(now.year(),DEC);
+ 
+  tft.setTextColor(TFT_RED);
+  tft.println("MPU9250/accelerometer");
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(1);
+  tft.print(IMU.getAccelX_mss(), 6);
+  tft.print("  ");
+  tft.print(IMU.getGyroY_rads(), 6);
+  tft.print("  ");
+  tft.println(IMU.getMagZ_uT(), 6);
+  //tft.setCursor(0,100);
+  tft.setTextColor(TFT_RED);
+  tft.setTextSize(2);
+  tft.print("Pot:");
+  tft.print(",LDR:");
+  tft.print(",lm:");
+  tft.println(",AS:");
+  tft.setTextColor(TFT_BLACK);
+  float x = analogRead(pin1);
+  tft.print(x);
+  Serial.print(x);
+  tft.print(" ");
+  int y = analogRead(pin2);
+  tft.print(y);
+  tft.print(" ");
+  int z=analogRead(pin3);
+  tft.print(z);
+  tft.print(" ");
+  int e=analogRead(pin4);
+  tft.println(e);
+  
+    tft.setTextColor(TFT_RED);
+    tft.println("ADS1115-16 bit ADC");
+    tft.setTextColor(TFT_BLACK);
+    tft.print("A0:");
+    tft.print(adc0);
+    tft.print(",A1:");
+    tft.print(adc1);
+    tft.print(",A2:");
+    tft.print(adc2);
+    tft.print(",A3:");
+    tft.print(adc3);
+    
+}
+
+
+
+void rundcmotor()
+{
+  const int B1A = 26;
+  const int B2B = 27;
+  const int A1A=32;
+  const int A1B=33;
+  pinMode(B1A, OUTPUT);
+  pinMode(B2B, OUTPUT);
+  pinMode(A1A, OUTPUT);
+  pinMode(A1B, OUTPUT);
+  digitalWrite(B1A,LOW);
+  digitalWrite(B2B,HIGH);
+  digitalWrite(A1A,LOW);
+  digitalWrite(A1B,HIGH);
+  delay(2000); //2s delay
+  digitalWrite(B1A,HIGH);
+  digitalWrite(B2B,LOW);
+  digitalWrite(A1A,HIGH);
+  digitalWrite(A1B,LOW);
+  delay(2000); //2s delay
+}
+
+
+
+void relay(){
+  Wire.requestFrom(PCF8574_U11, 8);
+  if (Wire.available()) { // If data is available
+    data1 = Wire.read(); // Read the data
+    Serial.println(data1, BIN); // Print the data in binary format
+  }
+  // result = 0;
+  // if( (data1 & 0x01)!= 0) {result |= RELAY_1;} 
+  // if( (data1 & 0x02)!= 0) {result |= RELAY_2;}
+ 
+  Wire.beginTransmission(PCF8574_U9);
+  Wire.write(data1);
+  Wire.endTransmission();
+
+  Wire.beginTransmission(0x3e);
+  Wire.write(data1);
+  Wire.endTransmission();
+
+}
+
+
+
+void stepper(){
+   int steps=500;
+    while(1)
+    { 
+    Wire.beginTransmission(PCF8574_U8);
+    Wire.write(0b11110111);
+    Wire.endTransmission();
+    delay(10);
+    steps--;
+    if(steps==0)
+    break;
+    Wire.beginTransmission(PCF8574_U8);
+    Wire.write(0b11111011);
+    Wire.endTransmission();
+    delay(10);
+    steps--;
+    if(steps==0)
+    break;
+    Wire.beginTransmission(PCF8574_U8);
+    Wire.write(0b11111101);
+    Wire.endTransmission();
+    delay(10);
+    steps--;
+    if(steps==0)
+    break;
+    // digitalWrite(2, HIGH); 
+    // Serial.println("..0");
+    // delay(1000);
+    Wire.beginTransmission(PCF8574_U8);
+    Wire.write(0b11111110);
+    Wire.endTransmission();
+    // digitalWrite(2, LOW); 
+    // Serial.println("..1");
+    delay(10);
+    steps--;
+    if(steps==0)
+    break;
+    }
+    Serial.println("step done");
+}
+
+
+
+void switch2(){
+  //while(){
+  Wire.requestFrom(0x3f,8);
+  if (Wire.available()) { // If data is available
+    data2 = Wire.read(); // Read the data
+    Serial.println(data2, BIN); // Print the data in binary format
+  }
+    
+    Wire.beginTransmission(PCF8574_U7);
+    Wire.write(data2);
+    Wire.endTransmission();
+    // digitalWrite(2, HIGH); 
+    // Serial.println("..0");
+    delay(1000);
+    Wire.beginTransmission(PCF8574_U7);
+    Wire.write(0b11111111);
+    Wire.endTransmission();
+    // digitalWrite(2, LOW); 
+    // Serial.println("..1");
+    delay(10);
+}
+
+void runservo()
+{
+  int pwm0;
+  // Initialize PCA9685
+  pca9685.begin();
+  // Set PWM Frequency to 50Hz
+  pca9685.setPWMFreq(50);
+
+  for (int posDegrees = 0; posDegrees <= 180; posDegrees++) {
+ 
+    // Determine PWM pulse width
+    pwm0 = map(posDegrees, 0, 180, SERVOMIN, SERVOMAX);
+    // Write to PCA9685
+    pca9685.setPWM(SER0, 0, pwm0);
+    // Print to serial monitor
+    Serial.print("Motor 0 = ");
+    Serial.println(posDegrees);
+    delay(30);
+  }
+
+   for (int posDegrees = 180; posDegrees >= 0; posDegrees--) {
+ 
+    // Determine PWM pulse width
+    pwm0 = map(posDegrees, 0, 180, SERVOMIN, SERVOMAX);
+    // Write to PCA9685
+    pca9685.setPWM(SER0, 0, pwm0);
+    // Print to serial monitor
+    Serial.print("Motor 0 = ");
+    Serial.println(posDegrees);
+    delay(30);
+  }
+
+}
+
+void stepper2()
+{
+  digitalWrite(DIR, HIGH);
+  Serial.println("Spinning Clockwise...");
+  
+  for(int i = 0; i<steps_per_rev; i++)
+  {
+    digitalWrite(STEP, HIGH);
+    delayMicroseconds(20000);
+    digitalWrite(STEP, LOW);
+    delayMicroseconds(20000);
+  }
+  delay(500); 
+  
+  digitalWrite(DIR, LOW);
+  Serial.println("Spinning Anti-Clockwise...");
+
+  for(int i = 0; i<steps_per_rev; i++)
+  {
+    digitalWrite(STEP, HIGH);
+    delayMicroseconds(20000);
+    digitalWrite(STEP, LOW);
+    delayMicroseconds(20000);
+  }
+  delay(500);
+}
+
+
+void loop() 
+{
+  tft.fillScreen(TFT_WHITE);
+  //tft.setTextColor(TFT_BLACK);
+  //tft.setCursor(3,50);
+  //tft.setTextSize(3);
+  //tft.println("Welcome to RV IOT board");
+  tft.setTextSize(2);
+  tft.setCursor(0,0);
+  tft.setTextColor(TFT_RED);
+  tft.println("Testing Menu");
+  tft.println();
+  tft.setTextColor(TFT_BLACK);
+  tft.println("1 - Sensor Data");
+  tft.println("2 - Run dc motor");
+  tft.println("3 - Run servo ");
+  tft.println("4 - Relay/proxi");
+  tft.println("5 - Stepper(unipolor)");
+  tft.println("6 - Switchs");
+  tft.println("7 - Music and Sd");
+  tft.println("8 - Buzzer");
+  tft.println("9 - Stepper(bipolar)");
+  tft.println("A - IR reading");
+  tft.println("B - Oled Display");
+  char x=readKB();
+  if(x=='1'){
+    ws2812b.clear();  // set all pixel colors to 'off'. It only takes effect if pixels.show() is called
+    ws2812b.show();
+    // turn pixels to green one-by-one with delay between each pixel        // for each pixel
+    delay(100);
+    ws2812b.setPixelColor(0, ws2812b.Color(235, 88, 77));  // it only takes effect if pixels.show() is called
+    ws2812b.show();
+    while(1){
+      TFT1();
+      tft.setCursor(0,200);
+      tft.print("enter 0 to enter menu");
+      if(readKB1()=='0') 
+      {
+        ws2812b.clear();  // set all pixel colors to 'off'. It only takes effect if pixels.show() is called
+        ws2812b.show();
+        break;
+      }
+    }
+  }
+  else if(x=='2')
+  {
+    while(1)
+    {
+      tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(3);
+      tft.setCursor(0,20);
+      tft.println("Dc motor running");
+      tft.println("Wait!");
+      rundcmotor();
+      tft.println("Press 0 to enter menu");
+      if(readKB()=='0'){
+      digitalWrite(B1A,LOW);
+      digitalWrite(B2B,LOW);
+      digitalWrite(32,LOW);
+      digitalWrite(33,LOW);
+      break;
+      }
+    }
+  }
+  else if(x=='3')
+  {
+    while(1)
+    {
+      tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(3);
+      tft.setCursor(0,20);
+      tft.println("servo motor"); 
+      tft.println("running");
+      tft.println("Wait!");
+      runservo();
+      tft.println("Press 0 to enter menu");
+      if(readKB()=='0'){
+      break;
+      }
+    }
+  }
+  else if(x=='4'){
+    tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(3);
+      tft.setCursor(0,20);
+      tft.println("relay running");
+      tft.println("Press 0 to enter menu");
+    while(1){
+      relay();
+      if(readKB1()=='0') break;
+    }
+  }
+  else if(x=='5'){
+    while(1){
+    tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(3);
+      tft.setCursor(0,20);
+      tft.println("stepper motor");
+      tft.println("running! Wait");
+      stepper();
+      tft.println("Press 0 to enter menu");
+      if(readKB()=='0') break;
+    }
+  }
+  else if(x=='6'){
+    while(1){
+    tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setCursor(0,20);
+      tft.setTextSize(3);
+      tft.println("switch and led running");
+      tft.println("Press 0 to Enter menu");
+      switch2();
+      if(readKB1()=='0') break;
+    }
+  }
+  else if(x=='7'){
+    
+     tft.fillScreen(TFT_WHITE); // Fill the screen with black color
+     tft.setTextColor(TFT_BLACK); // Set text color to white
+    tft.setTextSize(3); // Set text size to 2
+  
+  tft.setCursor(2, 2); // Set the cursor position
+  //tft.println("Hello bro12"); // Print a message on the screen
+  //delay(1000);
+  //digitalWrite(TFT_BL, LOW);
+  delay(1000);
+  while (!SD.begin()) {
+    tft.println("Card Mount Failed");
+    delay(1000);
+  }
+  tft.println("setup success");
+    audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+    audio.setVolume(15); // 0...21
+    audio.connecttoFS(SD,"/Garuda.mp3");
+    tft.println("Yaare Koogadali Hoore Horadali");
+    while(1){
+      audio.loop();
+    }
+  }
+  else if(x=='8'){
+    tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setCursor(0,20);
+      tft.println("buzzer is running");
+      tft.println("Press 0 to enter menu");
+    while(1){
+    //delay(3000);
+    digitalWrite(25, LOW);  // turn the LED on (HIGH is the voltage level)
+    delay(500);                      // wait for a second
+    digitalWrite(25, HIGH);   // turn the LED off by making the voltage LOW
+    delay(500);
+    if(readKB1()=='0') break;
+    }
+  }
+  else if(x=='9'){
+    tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(3);
+      tft.setCursor(0,20);
+      tft.println("Stepper motor running! Wait");
+    while(1){
+      stepper2();
+      tft.println("Press 0 to enter menu");
+      if(readKB()=='0') break;
+    }
+  }
+  
+  
+  else if(x=='A'){
+    while(1){
+      tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(2);
+      tft.setCursor(0,20);
+      tft.println("IR Reading");
+      tft.println("Press 0 to enter menu");
+      if (irrecv.decode(&results)) {// Print the received IR code to the Serial Monitor
+    tft.println("IR Code: 0x");
+    tft.println(results.value, HEX);
+    irrecv.resume(); // Receive the next value
+    }
+  else{
+  tft.println("Failed");}
+      if(readKB1()=='0') break;
+    }
+  }
+
+  else if(x=='B'){
+      oled.clearDisplay();              // Clear screen
+      oled.setTextXY(2,2);              // Set cursor position, start of line 0
+      oled.putString("   RV");
+      oled.setTextXY(4,2);              // Set cursor position, start of line 1
+      oled.putString("CSE Dept");
+      tft.fillScreen(TFT_WHITE);
+      tft.setTextColor(TFT_BLACK);
+      tft.setTextSize(2);
+      tft.setCursor(0,20);
+      tft.println("oled Working");
+      tft.println("Press 0 to enter menu");
+      char c=readKB();
+      if(c=='0')
+      oled.clearDisplay();
+  }
+
+  delay(1000);
+
+}

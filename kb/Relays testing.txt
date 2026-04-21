@@ -1,0 +1,23 @@
+#include <Wire.h>
+#define PCF8574_U9 0x3b // PCF8574 I2C address
+void setup()
+{ 
+  pinMode(2, OUTPUT);
+  Serial.begin(9600); // Initialize serial communication
+  Wire.begin(); // Initialize I2C communication 
+}
+void loop()
+{ 
+    Wire.beginTransmission(PCF8574_U9);
+    Wire.write(0b00000000);
+    Wire.endTransmission();
+    digitalWrite(2, HIGH); 
+    Serial.println("..0");
+    delay(1000);
+    Wire.beginTransmission(PCF8574_U9);
+    Wire.write(0b11111111);
+    Wire.endTransmission();
+    digitalWrite(2, LOW); 
+    Serial.println("..1");
+    delay(1000);
+}

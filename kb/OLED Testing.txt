@@ -1,0 +1,21 @@
+#include <Wire.h>
+#include "ACROBOTIC_SSD1306.h"
+
+void setup()
+{ 
+  Wire.begin(); 
+  pinMode(2, OUTPUT);
+  oled.init();                      // Initialze SSD1306 OLED display
+  oled.clearDisplay();              // Clear screen
+  oled.setTextXY(2,2);              // Set cursor position, start of line 0
+  oled.putString("   RV");
+  oled.setTextXY(4,2);              // Set cursor position, start of line 1
+  oled.putString("CSE Dept");
+}
+void loop()
+{ 
+digitalWrite(2,HIGH);
+delay(1000);
+digitalWrite(2,LOW);
+delay(1000);    
+}

@@ -1,0 +1,30 @@
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+
+const uint16_t kRecvPin = 36; // GPIO 4 on ESP32
+
+IRrecv irrecv(kRecvPin);
+decode_results results;
+
+void setup() {
+  Serial.begin(9600);
+  irrecv.enableIRIn(); // Start the infrared receiver
+}
+
+void loop() {
+  if (irrecv.decode(&results)) {
+    // Print the received IR code to the Serial Monitor
+    Serial.print("IR Code: 0x");
+    Serial.println(results.value, HEX);
+
+    // Uncomment the following line if you want to see the raw data of the received signal
+    // dumpCode(&results);
+
+    irrecv.resume(); // Receive the next value
+    }
+  else{
+  Serial.println("Failed");}
+delay(1000);
+  
+}

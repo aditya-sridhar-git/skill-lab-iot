@@ -1,0 +1,29 @@
+//Program to check the working of Proximity Sensors and Relays
+#include <Wire.h>
+#define PCF8574_U9 0x3b // PCF8574 I2C address
+#define PCF8574_U11 0x3A // PCF8574 I2C address
+byte data1;
+byte RELAY_1 = 0X01;
+byte RELAY_2 = 0x02;
+byte result = 0x00;
+void setup()
+{ 
+  pinMode(2, OUTPUT);
+  Serial.begin(115200); // Initialize serial communication
+  Wire.begin();       // Initialize I2C communication 
+}
+void loop()
+{ 
+ Wire.requestFrom(PCF8574_U11, 1);
+  if (Wire.available()) { // If data is available
+    data1 = Wire.read(); // Read the data
+    Serial.println(data1, BIN); // Print the data in binary format
+  }
+  result = 0;
+  if( (data1 & 0x01)!= 0) {result |= RELAY_1;} 
+  if( (data1 & 0x02)!= 0) {result |= RELAY_2;}
+ 
+  Wire.beginTransmission(PCF8574_U9);
+  Wire.write(result);
+  Wire.endTransmission();
+}

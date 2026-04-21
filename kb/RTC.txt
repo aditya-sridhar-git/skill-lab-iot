@@ -1,0 +1,67 @@
+#include <Wire.h>
+#include "ACROBOTIC_SSD1306.h"
+#include "RTClib.h"
+// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
+RTC_DS1307 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+void setup()
+{ 
+  pinMode(2, OUTPUT);
+  Serial.begin(115200);
+  Wire.begin(); 
+  oled.init(); 
+  oled.clearDisplay(); 
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+ }
+ 
+ if (!rtc.isrunning()) {
+    Serial.println("RTC is NOT running, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
+   // When time needs to be re-set on a previously configured device, the
+  // following line sets the RTC to the date & time this sketch was compiled
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  // This line sets the RTC with an explicit date & time, for example to set
+  // January 21, 2014 at 3am you would call:
+  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  
+  rtc.writeSqwPinMode(DS1307_SquareWave1HZ);
+}
+void loop()
+{ 
+  DateTime now = rtc.now();
+  
+  // Print the date and time to the OLED DISPLAY
+  
+  oled.setTextXY(2,4); oled.putString("                    ");
+  oled.setTextXY(2,4);oled.putNumber(now.hour());oled.putString(":");
+  oled.putNumber(now.minute());oled.putString(":");oled.putNumber(now.second());
+  oled.setTextXY(4,0); oled.putString("                    ");
+  oled.putString(daysOfTheWeek[now.dayOfTheWeek()]);
+  oled.setTextXY(6,0); oled.putString("                    ");
+  oled.putNumber(now.day());oled.putString("-");oled.putNumber(now.month());oled.putString("-");oled.putNumber(now.year());
+  
+  // Print the date and time to the serial monitor
+  Serial.print(now.year(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.day(), DEC);
+  Serial.print(" (");
+  Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+  Serial.print(") ");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println(); 
+  delay(3000);
+}
