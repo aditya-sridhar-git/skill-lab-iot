@@ -25,13 +25,13 @@
 #include <WiFi.h>
 #include "ThingSpeak.h" // always include thingspeak header file after other header files and custom macros
 
-char ssid[] = "iPhone";   // your network SSID (name) 
-char pass[] = "87654321";   // your network password
+char ssid[] = "Girish's A14";   // your network SSID (name) 
+char pass[] = "uv8burfhzvy2hi2";   // your network password
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 WiFiClient  client;
 
-unsigned long myChannelNumber = 1045533;  // replace with your channel no
-const char * myWriteAPIKey = "OOUK8S7QDXDH2VOO"; // replace with your write API key
+unsigned long myChannelNumber = 3351039;  // replace with your channel no
+const char * myWriteAPIKey = "UBL7KADA3VWMKEJW"; // replace with your write API key
 
 int number = 0;
 
